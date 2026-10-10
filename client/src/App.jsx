@@ -1,7 +1,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const API_URL = "http://localhost:5000/api";
+// Production: Vercel environment variable
+// Local development: localhost fallback
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const emptyEmployee = {
   employeeId: "",
@@ -24,29 +27,29 @@ const styles = {
     fontFamily: "Arial, sans-serif",
   },
   container: {
-    maxWidth: "1200px",
+    maxWidth: 1200,
     margin: "0 auto",
-    padding: "24px",
+    padding: 24,
   },
   card: {
     background: "#fff",
-    borderRadius: "12px",
-    padding: "20px",
+    borderRadius: 12,
+    padding: 20,
     boxShadow: "0 2px 10px rgba(15,23,42,0.06)",
-    marginBottom: "20px",
+    marginBottom: 20,
   },
   input: {
     width: "100%",
     boxSizing: "border-box",
-    padding: "11px",
+    padding: 11,
     border: "1px solid #cbd5e1",
-    borderRadius: "7px",
-    fontSize: "14px",
+    borderRadius: 7,
+    fontSize: 14,
   },
   button: {
     padding: "10px 15px",
     border: "none",
-    borderRadius: "7px",
+    borderRadius: 7,
     background: "#2563eb",
     color: "#fff",
     cursor: "pointer",
@@ -55,7 +58,7 @@ const styles = {
   secondaryButton: {
     padding: "10px 15px",
     border: "1px solid #cbd5e1",
-    borderRadius: "7px",
+    borderRadius: 7,
     background: "#fff",
     color: "#334155",
     cursor: "pointer",
@@ -63,9 +66,9 @@ const styles = {
   },
   label: {
     display: "block",
-    fontSize: "13px",
+    fontSize: 13,
     fontWeight: "bold",
-    marginBottom: "6px",
+    marginBottom: 6,
   },
 };
 
@@ -79,11 +82,11 @@ function alertStyle(type) {
   const isError = type === "error";
 
   return {
-    padding: "12px",
-    borderRadius: "7px",
+    padding: 12,
+    borderRadius: 7,
     background: isError ? "#fee2e2" : "#dcfce7",
     color: isError ? "#991b1b" : "#166534",
-    fontSize: "14px",
+    fontSize: 14,
     overflowWrap: "anywhere",
   };
 }
@@ -98,6 +101,26 @@ function formatCurrency(value) {
 
 function getErrorMessage(error, fallback) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function StatCard({ title, value }) {
+  return (
+    <div style={{ ...styles.card, marginBottom: 0 }}>
+      <p style={{ margin: "0 0 12px", fontSize: 14, color: "#64748b" }}>
+        {title}
+      </p>
+      <h2 style={{ margin: 0, fontSize: 25 }}>{value}</h2>
+    </div>
+  );
+}
+
+function FormField({ label, children }) {
+  return (
+    <div>
+      <label style={styles.label}>{label}</label>
+      {children}
+    </div>
+  );
 }
 
 export default function App() {
@@ -133,9 +156,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  async function apiRequest(url, options = {}) {
+  // All API calls use the configured API base URL.
+  async function apiRequest(path, options = {}) {
     const currentToken = localStorage.getItem("token") || token;
-
     const headers = { ...(options.headers || {}) };
 
     if (currentToken) {
@@ -145,13 +168,13 @@ export default function App() {
     let response;
 
     try {
-      response = await fetch(`${API_URL}${url}`, {
+      response = await fetch(`${API_URL}${path}`, {
         ...options,
         headers,
       });
     } catch {
       throw new Error(
-        "Backend connect nahi ho raha. Check karo server port 5000 par chal raha hai."
+        "Backend connect nahi ho raha. Render backend URL aur CORS settings check karo."
       );
     }
 
@@ -370,10 +393,7 @@ export default function App() {
     setMessage("");
 
     try {
-      await apiRequest(`/employees/${id}`, {
-        method: "DELETE",
-      });
-
+      await apiRequest(`/employees/${id}`, { method: "DELETE" });
       setMessage("Employee deleted successfully.");
       await loadEmployees();
     } catch (err) {
@@ -430,9 +450,7 @@ export default function App() {
     () => [
       "All",
       ...new Set(
-        employees
-          .map((employee) => employee.department)
-          .filter(Boolean)
+        employees.map((employee) => employee.department).filter(Boolean)
       ),
     ],
     [employees]
@@ -456,7 +474,6 @@ export default function App() {
     ...departmentData.map((item) => item.count)
   );
 
-  // CSV EXPORT
   function exportCSV() {
     if (filteredEmployees.length === 0) {
       setError("Export karne ke liye employees nahi hain.");
@@ -477,11 +494,9 @@ export default function App() {
     ];
 
     function escapeCSV(value) {
-      const text = String(value ?? "");
-      return `"${text.replace(/"/g, '""')}"`;
+      return `"${String(value ?? "").replace(/"/g, '""')}"`;
     }
 
-    // Fixed: missing variable name
     const rows = [
       columns.join(","),
       ...filteredEmployees.map((employee) =>
@@ -516,7 +531,6 @@ export default function App() {
     setMessage("CSV export successful!");
   }
 
-  // CSV IMPORT
   async function importCSV(event) {
     const input = event.target;
     const file = input.files?.[0];
@@ -552,7 +566,7 @@ export default function App() {
     }
   }
 
-  // LOGIN SCREEN
+  // Login and registration screen
   if (!token) {
     return (
       <div
@@ -561,12 +575,12 @@ export default function App() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "20px",
+          padding: 20,
           boxSizing: "border-box",
         }}
       >
-        <div style={{ ...styles.card, width: "100%", maxWidth: "420px" }}>
-          <h1 style={{ textAlign: "center", marginBottom: "8px" }}>
+        <div style={{ ...styles.card, width: "100%", maxWidth: 420 }}>
+          <h1 style={{ textAlign: "center", marginBottom: 8 }}>
             Employee Management
           </h1>
 
@@ -581,17 +595,14 @@ export default function App() {
 
           <form onSubmit={handleAuth}>
             {authMode === "register" && (
-              <div style={{ marginBottom: "16px" }}>
+              <div style={{ marginBottom: 16 }}>
                 <label style={styles.label}>Full Name</label>
                 <input
                   style={styles.input}
                   name="name"
                   value={authForm.name}
                   onChange={(event) =>
-                    setAuthForm({
-                      ...authForm,
-                      name: event.target.value,
-                    })
+                    setAuthForm({ ...authForm, name: event.target.value })
                   }
                   required
                   placeholder="Enter your name"
@@ -599,7 +610,7 @@ export default function App() {
               </div>
             )}
 
-            <div style={{ marginBottom: "16px" }}>
+            <div style={{ marginBottom: 16 }}>
               <label style={styles.label}>Email</label>
               <input
                 style={styles.input}
@@ -607,17 +618,14 @@ export default function App() {
                 name="email"
                 value={authForm.email}
                 onChange={(event) =>
-                  setAuthForm({
-                    ...authForm,
-                    email: event.target.value,
-                  })
+                  setAuthForm({ ...authForm, email: event.target.value })
                 }
                 required
                 placeholder="Enter your email"
               />
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
+            <div style={{ marginBottom: 20 }}>
               <label style={styles.label}>Password</label>
               <input
                 style={styles.input}
@@ -625,10 +633,7 @@ export default function App() {
                 name="password"
                 value={authForm.password}
                 onChange={(event) =>
-                  setAuthForm({
-                    ...authForm,
-                    password: event.target.value,
-                  })
+                  setAuthForm({ ...authForm, password: event.target.value })
                 }
                 required
                 minLength={6}
@@ -649,7 +654,7 @@ export default function App() {
             </button>
           </form>
 
-          <p style={{ textAlign: "center", marginTop: "20px" }}>
+          <p style={{ textAlign: "center", marginTop: 20 }}>
             {authMode === "login"
               ? "Don't have an account?"
               : "Already have an account?"}{" "}
@@ -676,15 +681,10 @@ export default function App() {
     );
   }
 
-  // MAIN DASHBOARD
+  // Main dashboard
   return (
     <div style={styles.page}>
-      <header
-        style={{
-          background: "#fff",
-          borderBottom: "1px solid #e2e8f0",
-        }}
-      >
+      <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
         <div
           style={{
             ...styles.container,
@@ -692,7 +692,7 @@ export default function App() {
             flexWrap: "wrap",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: "12px",
+            gap: 12,
           }}
         >
           <div>
@@ -702,14 +702,8 @@ export default function App() {
             </p>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-            }}
-          >
-            <span style={{ fontSize: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 14 }}>
               {user?.name || user?.email || "Logged in"}
             </span>
             <button style={styles.secondaryButton} onClick={logout}>
@@ -727,8 +721,8 @@ export default function App() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-            gap: "16px",
-            marginBottom: "22px",
+            gap: 16,
+            marginBottom: 22,
           }}
         >
           <StatCard title="Total Employees" value={totalEmployees} />
@@ -749,15 +743,15 @@ export default function App() {
               Department chart dikhane ke liye employees add karo.
             </p>
           ) : (
-            <div style={{ display: "grid", gap: "14px" }}>
+            <div style={{ display: "grid", gap: 14 }}>
               {departmentData.map((item) => (
                 <div key={item.department}>
                   <div
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      marginBottom: "6px",
-                      fontSize: "14px",
+                      marginBottom: 6,
+                      fontSize: 14,
                     }}
                   >
                     <span>{item.department}</span>
@@ -766,8 +760,8 @@ export default function App() {
 
                   <div
                     style={{
-                      height: "12px",
-                      borderRadius: "20px",
+                      height: 12,
+                      borderRadius: 20,
                       background: "#e2e8f0",
                       overflow: "hidden",
                     }}
@@ -777,7 +771,7 @@ export default function App() {
                         height: "100%",
                         width: `${(item.count / maxDepartmentCount) * 100}%`,
                         background: "#2563eb",
-                        borderRadius: "20px",
+                        borderRadius: 20,
                       }}
                     />
                   </div>
@@ -798,7 +792,7 @@ export default function App() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: "16px",
+                  gap: 16,
                 }}
               >
                 <FormField label="Employee ID">
@@ -861,13 +855,19 @@ export default function App() {
                     onChange={handleFormChange}
                     required
                   >
-                    <option value="IT">IT</option>
-                    <option value="HR">HR</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Other">Other</option>
+                    {[
+                      "IT",
+                      "HR",
+                      "Finance",
+                      "Sales",
+                      "Marketing",
+                      "Operations",
+                      "Other",
+                    ].map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
                   </select>
                 </FormField>
 
@@ -923,15 +923,11 @@ export default function App() {
                 style={{
                   display: "flex",
                   flexWrap: "wrap",
-                  gap: "10px",
-                  marginTop: "20px",
+                  gap: 10,
+                  marginTop: 20,
                 }}
               >
-                <button
-                  type="submit"
-                  disabled={saving}
-                  style={styles.button}
-                >
+                <button type="submit" disabled={saving} style={styles.button}>
                   {saving
                     ? "Saving..."
                     : editingId
@@ -962,24 +958,18 @@ export default function App() {
               flexWrap: "wrap",
               justifyContent: "space-between",
               alignItems: "center",
-              gap: "12px",
-              marginBottom: "20px",
+              gap: 12,
+              marginBottom: 20,
             }}
           >
             <div>
               <h3 style={{ margin: "0 0 6px" }}>Employee Directory</h3>
-              <span style={{ color: "#64748b", fontSize: "13px" }}>
+              <span style={{ color: "#64748b", fontSize: 13 }}>
                 Showing {filteredEmployees.length} of {totalEmployees} employees
               </span>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px",
-              }}
-            >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <button style={styles.button} onClick={startAddEmployee}>
                 + Add Employee
               </button>
@@ -1019,8 +1009,8 @@ export default function App() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "12px",
-              marginBottom: "18px",
+              gap: 12,
+              marginBottom: 18,
             }}
           >
             <input
@@ -1059,8 +1049,8 @@ export default function App() {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                minWidth: "950px",
-                fontSize: "14px",
+                minWidth: 950,
+                fontSize: 14,
               }}
             >
               <thead>
@@ -1114,8 +1104,8 @@ export default function App() {
                         <span
                           style={{
                             padding: "5px 8px",
-                            borderRadius: "20px",
-                            fontSize: "12px",
+                            borderRadius: 20,
+                            fontSize: 12,
                             fontWeight: "bold",
                             background:
                               employee.status === "Active"
@@ -1135,12 +1125,12 @@ export default function App() {
                         </span>
                       </td>
                       <td style={cellStyle}>
-                        <div style={{ display: "flex", gap: "7px" }}>
+                        <div style={{ display: "flex", gap: 7 }}>
                           <button
                             style={{
                               ...styles.button,
                               padding: "7px 10px",
-                              fontSize: "12px",
+                              fontSize: 12,
                             }}
                             onClick={() => startEditEmployee(employee)}
                           >
@@ -1152,7 +1142,7 @@ export default function App() {
                               ...styles.button,
                               background: "#dc2626",
                               padding: "7px 10px",
-                              fontSize: "12px",
+                              fontSize: 12,
                             }}
                             onClick={() => deleteEmployee(employee)}
                           >
@@ -1170,7 +1160,7 @@ export default function App() {
                       colSpan={9}
                       style={{
                         textAlign: "center",
-                        padding: "30px",
+                        padding: 30,
                         color: "#64748b",
                       }}
                     >
@@ -1185,42 +1175,10 @@ export default function App() {
           </div>
         </section>
 
-        <p
-          style={{
-            textAlign: "center",
-            color: "#64748b",
-            fontSize: "13px",
-          }}
-        >
+        <p style={{ textAlign: "center", color: "#64748b", fontSize: 13 }}>
           Employee Management System · MERN Stack
         </p>
       </main>
-    </div>
-  );
-}
-
-function StatCard({ title, value }) {
-  return (
-    <div style={{ ...styles.card, marginBottom: 0 }}>
-      <p
-        style={{
-          margin: "0 0 12px",
-          fontSize: "14px",
-          color: "#64748b",
-        }}
-      >
-        {title}
-      </p>
-      <h2 style={{ margin: 0, fontSize: "25px" }}>{value}</h2>
-    </div>
-  );
-}
-
-function FormField({ label, children }) {
-  return (
-    <div>
-      <label style={styles.label}>{label}</label>
-      {children}
     </div>
   );
 }
