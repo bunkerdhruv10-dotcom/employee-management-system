@@ -1,10 +1,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-// Production: Vercel environment variable
-// Local development: localhost fallback
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+// Production: Set VITE_API_URL in Vercel.
+// Local development: Uses localhost fallback.
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+).replace(/\/+$/, "");
 
 const emptyEmployee = {
   employeeId: "",
@@ -115,10 +116,17 @@ function StatCard({ title, value }) {
 }
 
 function FormField({ label, children }) {
+  const id = useMemo(
+    () => `field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    [label]
+  );
+
   return (
     <div>
-      <label style={styles.label}>{label}</label>
-      {children}
+      <label htmlFor={id} style={styles.label}>
+        {label}
+      </label>
+      {typeof children === "function" ? children(id) : children}
     </div>
   );
 }
@@ -156,44 +164,73 @@ export default function App() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  // All API calls use the configured API base URL.
+  // Updated API request: timeout, URL normalization and clearer errors.
   async function apiRequest(path, options = {}) {
     const currentToken = localStorage.getItem("token") || token;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     const headers = { ...(options.headers || {}) };
 
     if (currentToken) {
       headers.Authorization = `Bearer ${currentToken}`;
     }
 
-    let response;
+    const isFormData =
+      typeof FormData !== "undefined" && options.body instanceof FormData;
+
+    if (options.body && !isFormData && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
     try {
-      response = await fetch(`${API_URL}${path}`, {
+      const response = await fetch(`${API_URL}${normalizedPath}`, {
         ...options,
         headers,
+        signal: controller.signal,
       });
-    } catch {
-      throw new Error(
-        "Backend connect nahi ho raha. Render backend URL aur CORS settings check karo."
-      );
+
+      const result = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        // Clear session only when the server explicitly returns 401.
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setToken("");
+        setUser(null);
+        setEmployees([]);
+
+        throw new Error(
+          "Session expired or invalid credentials. Please login again."
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || `Request failed with status ${response.status}.`
+        );
+      }
+
+      return result;
+    } catch (err) {
+      if (err.name === "AbortError") {
+        throw new Error(
+          "Backend response nahi aa raha. Render service aur backend logs check karo."
+        );
+      }
+
+      if (err instanceof TypeError) {
+        throw new Error(
+          "Backend connect nahi ho raha. API URL, CORS settings aur Render logs check karo."
+        );
+      }
+
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const result = await response.json().catch(() => ({}));
-
-    if (response.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setToken("");
-      setUser(null);
-      setEmployees([]);
-      throw new Error("Session expired. Please login again.");
-    }
-
-    if (!response.ok) {
-      throw new Error(result.message || "Request failed.");
-    }
-
-    return result;
   }
 
   async function loadEmployees() {
@@ -204,7 +241,6 @@ export default function App() {
 
     try {
       const result = await apiRequest("/employees");
-
       const list = Array.isArray(result)
         ? result
         : result.employees || result.data || [];
@@ -255,7 +291,7 @@ export default function App() {
 
       if (!receivedToken) {
         throw new Error(
-          "Login response mein token nahi mila. Backend auth controller check karo."
+          "Backend response mein token nahi mila. Backend auth controller check karo."
         );
       }
 
@@ -428,15 +464,12 @@ export default function App() {
   }, [employees, search, departmentFilter, statusFilter]);
 
   const totalEmployees = employees.length;
-
   const activeEmployees = employees.filter(
     (employee) => employee.status === "Active"
   ).length;
-
   const inactiveEmployees = employees.filter(
     (employee) => employee.status === "Inactive"
   ).length;
-
   const onLeaveEmployees = employees.filter(
     (employee) => employee.status === "On Leave"
   ).length;
@@ -536,7 +569,6 @@ export default function App() {
     const file = input.files?.[0];
 
     input.value = "";
-
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".csv")) {
@@ -596,10 +628,14 @@ export default function App() {
           <form onSubmit={handleAuth}>
             {authMode === "register" && (
               <div style={{ marginBottom: 16 }}>
-                <label style={styles.label}>Full Name</label>
+                <label htmlFor="auth-name" style={styles.label}>
+                  Full Name
+                </label>
                 <input
+                  id="auth-name"
                   style={styles.input}
                   name="name"
+                  autoComplete="name"
                   value={authForm.name}
                   onChange={(event) =>
                     setAuthForm({ ...authForm, name: event.target.value })
@@ -611,11 +647,15 @@ export default function App() {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>Email</label>
+              <label htmlFor="auth-email" style={styles.label}>
+                Email
+              </label>
               <input
+                id="auth-email"
                 style={styles.input}
                 type="email"
                 name="email"
+                autoComplete="email"
                 value={authForm.email}
                 onChange={(event) =>
                   setAuthForm({ ...authForm, email: event.target.value })
@@ -626,11 +666,17 @@ export default function App() {
             </div>
 
             <div style={{ marginBottom: 20 }}>
-              <label style={styles.label}>Password</label>
+              <label htmlFor="auth-password" style={styles.label}>
+                Password
+              </label>
               <input
+                id="auth-password"
                 style={styles.input}
                 type="password"
                 name="password"
+                autoComplete={
+                  authMode === "login" ? "current-password" : "new-password"
+                }
                 value={authForm.password}
                 onChange={(event) =>
                   setAuthForm({ ...authForm, password: event.target.value })
@@ -644,7 +690,11 @@ export default function App() {
             <button
               type="submit"
               disabled={saving}
-              style={{ ...styles.button, width: "100%" }}
+              style={{
+                ...styles.button,
+                width: "100%",
+                opacity: saving ? 0.7 : 1,
+              }}
             >
               {saving
                 ? "Please wait..."
@@ -671,6 +721,7 @@ export default function App() {
                 setAuthMode(authMode === "login" ? "register" : "login");
                 setError("");
                 setMessage("");
+                setAuthForm({ name: "", email: "", password: "" });
               }}
             >
               {authMode === "login" ? "Register" : "Login"}
@@ -796,126 +847,156 @@ export default function App() {
                 }}
               >
                 <FormField label="Employee ID">
-                  <input
-                    style={styles.input}
-                    name="employeeId"
-                    value={form.employeeId}
-                    onChange={handleFormChange}
-                    required
-                    placeholder="EMP001"
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      name="employeeId"
+                      value={form.employeeId}
+                      onChange={handleFormChange}
+                      required
+                      placeholder="EMP001"
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="First Name">
-                  <input
-                    style={styles.input}
-                    name="firstName"
-                    value={form.firstName}
-                    onChange={handleFormChange}
-                    required
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      name="firstName"
+                      value={form.firstName}
+                      onChange={handleFormChange}
+                      required
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Last Name">
-                  <input
-                    style={styles.input}
-                    name="lastName"
-                    value={form.lastName}
-                    onChange={handleFormChange}
-                    required
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      name="lastName"
+                      value={form.lastName}
+                      onChange={handleFormChange}
+                      required
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Email">
-                  <input
-                    style={styles.input}
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleFormChange}
-                    required
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      type="email"
+                      name="email"
+                      value={form.email}
+                      onChange={handleFormChange}
+                      required
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Phone">
-                  <input
-                    style={styles.input}
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleFormChange}
-                    placeholder="Phone number"
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      name="phone"
+                      value={form.phone}
+                      onChange={handleFormChange}
+                      placeholder="Phone number"
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Department">
-                  <select
-                    style={styles.input}
-                    name="department"
-                    value={form.department}
-                    onChange={handleFormChange}
-                    required
-                  >
-                    {[
-                      "IT",
-                      "HR",
-                      "Finance",
-                      "Sales",
-                      "Marketing",
-                      "Operations",
-                      "Other",
-                    ].map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </select>
+                  {(id) => (
+                    <select
+                      id={id}
+                      style={styles.input}
+                      name="department"
+                      value={form.department}
+                      onChange={handleFormChange}
+                      required
+                    >
+                      {[
+                        "IT",
+                        "HR",
+                        "Finance",
+                        "Sales",
+                        "Marketing",
+                        "Operations",
+                        "Other",
+                      ].map((department) => (
+                        <option key={department} value={department}>
+                          {department}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </FormField>
 
                 <FormField label="Designation">
-                  <input
-                    style={styles.input}
-                    name="designation"
-                    value={form.designation}
-                    onChange={handleFormChange}
-                    required
-                    placeholder="Software Developer"
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      name="designation"
+                      value={form.designation}
+                      onChange={handleFormChange}
+                      required
+                      placeholder="Software Developer"
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Salary">
-                  <input
-                    style={styles.input}
-                    type="number"
-                    name="salary"
-                    value={form.salary}
-                    onChange={handleFormChange}
-                    min="0"
-                    required
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      type="number"
+                      name="salary"
+                      value={form.salary}
+                      onChange={handleFormChange}
+                      min="0"
+                      required
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Joining Date">
-                  <input
-                    style={styles.input}
-                    type="date"
-                    name="joiningDate"
-                    value={form.joiningDate}
-                    onChange={handleFormChange}
-                    required
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      style={styles.input}
+                      type="date"
+                      name="joiningDate"
+                      value={form.joiningDate}
+                      onChange={handleFormChange}
+                      required
+                    />
+                  )}
                 </FormField>
 
                 <FormField label="Status">
-                  <select
-                    style={styles.input}
-                    name="status"
-                    value={form.status}
-                    onChange={handleFormChange}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="On Leave">On Leave</option>
-                  </select>
+                  {(id) => (
+                    <select
+                      id={id}
+                      style={styles.input}
+                      name="status"
+                      value={form.status}
+                      onChange={handleFormChange}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                      <option value="On Leave">On Leave</option>
+                    </select>
+                  )}
                 </FormField>
               </div>
 
@@ -1015,6 +1096,7 @@ export default function App() {
           >
             <input
               style={styles.input}
+              aria-label="Search employees"
               placeholder="Search name, ID, email..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -1022,6 +1104,7 @@ export default function App() {
 
             <select
               style={styles.input}
+              aria-label="Filter by department"
               value={departmentFilter}
               onChange={(event) => setDepartmentFilter(event.target.value)}
             >
@@ -1034,6 +1117,7 @@ export default function App() {
 
             <select
               style={styles.input}
+              aria-label="Filter by employee status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
