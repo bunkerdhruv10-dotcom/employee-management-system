@@ -1,0 +1,4 @@
+
+employeeId,firstName,lastName,email,phone,department,designation,salary,joiningDate,status
+TEST101,Aarav,Shah,aarav.test101@example.com,9876543210,IT,Developer,30000,2026-04-01,Active
+TEST102,Diya,Patel,diya.test102@example.com,9876543211,HR,Executive,28000,2026-04-02,Active
